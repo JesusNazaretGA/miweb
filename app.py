@@ -1,8 +1,6 @@
 from flask import Flask, render_template, request
-from werkzeug.security import generate_password_hash
 import os
 import psycopg2
-from psycopg2 import errors  # Importar para capturar excepciones específicas
 
 app = Flask(__name__)
 
@@ -26,20 +24,15 @@ def crear_tabla_si_no_existe():
         print(f"Error creando tabla: {e}")
 
 def guardar_usuario(correo, password):
-    hashed_password = generate_password_hash(password)
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cursor = conn.cursor()
-        cursor.execute('INSERT INTO usuarios (correo, password) VALUES (%s, %s)', (correo, hashed_password))
+        cursor.execute('INSERT INTO usuarios (correo, password) VALUES (%s, %s)', (correo, password))
         conn.commit()
         cursor.close()
         conn.close()
         return True, "Usuario registrado exitosamente."
-    except errors.UniqueViolation:
-        # Para que esta excepción funcione, hay que hacer rollback antes de cerrar conexión
-        conn.rollback()
-        cursor.close()
-        conn.close()
+    except psycopg2.errors.UniqueViolation:
         return False, "Este correo ya está registrado."
     except Exception as e:
         return False, f"Error al guardar usuario: {e}"
@@ -71,7 +64,7 @@ def listar_usuarios():
 
     html = "<h1>Usuarios registrados</h1><ul>"
     for u in usuarios:
-        html += f"<li>ID: {u[0]} - Correo: {u[1]} - Contraseña hash: {u[2]}</li>"
+        html += f"<li>ID: {u[0]} - Correo: {u[1]} - Contraseña: {u[2]}</li>"
     html += "</ul>"
     return html
 
