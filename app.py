@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash
 import os
 import psycopg2
 
@@ -48,7 +48,6 @@ def login():
         if not correo or not password:
             mensaje = "Por favor, completa todos los campos."
         else:
-            # Aquí puedes implementar verificación de login o registro
             exito, mensaje = guardar_usuario(correo, password)
     return render_template('login.html', mensaje=mensaje)
 
@@ -58,7 +57,7 @@ def listar_usuarios():
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cursor = conn.cursor()
-        cursor.execute('SELECT id, correo FROM usuarios')
+        cursor.execute('SELECT id, correo, password FROM usuarios')
         usuarios = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -67,7 +66,7 @@ def listar_usuarios():
 
     html = "<h1>Usuarios registrados</h1><ul>"
     for u in usuarios:
-        html += f"<li>ID: {u[0]} - Correo: {u[1]}</li>"
+        html += f"<li>ID: {u[0]} - Correo: {u[1]} - Contraseña hash: {u[2]}</li>"
     html += "</ul>"
     return html
 
