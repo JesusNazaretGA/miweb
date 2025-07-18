@@ -2,6 +2,7 @@ from flask import Flask, render_template, request
 from werkzeug.security import generate_password_hash
 import os
 import psycopg2
+from psycopg2 import errors  # Importar para capturar excepciones específicas
 
 app = Flask(__name__)
 
@@ -34,7 +35,11 @@ def guardar_usuario(correo, password):
         cursor.close()
         conn.close()
         return True, "Usuario registrado exitosamente."
-    except psycopg2.errors.UniqueViolation:
+    except errors.UniqueViolation:
+        # Para que esta excepción funcione, hay que hacer rollback antes de cerrar conexión
+        conn.rollback()
+        cursor.close()
+        conn.close()
         return False, "Este correo ya está registrado."
     except Exception as e:
         return False, f"Error al guardar usuario: {e}"
