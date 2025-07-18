@@ -1,9 +1,8 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 import os
 import psycopg2
 
 app = Flask(__name__)
-
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def crear_tabla_si_no_existe():
@@ -37,6 +36,21 @@ def guardar_usuario(correo, password):
     except Exception as e:
         return False, f"Error al guardar usuario: {e}"
 
+def verificar_usuario(correo, password):
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()
+        cursor.execute('SELECT password FROM usuarios WHERE correo = %s', (correo,))
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if row and row[0] == password:
+            return True
+        return False
+    except Exception as e:
+        print(f"Error verificando usuario: {e}")
+        return False
+
 @app.route('/', methods=['GET', 'POST'])
 def login():
     mensaje = None
@@ -46,8 +60,25 @@ def login():
         if not correo or not password:
             mensaje = "Por favor, completa todos los campos."
         else:
-            exito, mensaje = guardar_usuario(correo, password)
+            if verificar_usuario(correo, password):
+                return render_template('exito.html', correo=correo)
+            else:
+                mensaje = "Correo o contraseña incorrectos."
     return render_template('login.html', mensaje=mensaje)
+
+@app.route('/registro', methods=['GET', 'POST'])
+def registro():
+    mensaje = None
+    if request.method == 'POST':
+        correo = request.form.get('correo')
+        password = request.form.get('password')
+        if not correo or not password:
+            mensaje = "Por favor, completa todos los campos."
+        else:
+            exito, mensaje = guardar_usuario(correo, password)
+            if exito:
+                return redirect(url_for('login'))
+    return render_template('registro.html', mensaje=mensaje)
 
 @app.route('/usuarios')
 def listar_usuarios():
