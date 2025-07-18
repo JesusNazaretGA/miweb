@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request
 import os
 import psycopg2
-from psycopg2.errors import UniqueViolation
 
 app = Flask(__name__)
 
@@ -24,7 +23,7 @@ def crear_tabla_si_no_existe():
     except Exception as e:
         print(f"Error creando tabla: {e}")
 
-def guardar_usuario(correo, password):
+def registrar_usuario(correo, password):
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cursor = conn.cursor()
@@ -33,10 +32,26 @@ def guardar_usuario(correo, password):
         cursor.close()
         conn.close()
         return True, "Usuario registrado exitosamente."
-    except UniqueViolation:
+    except psycopg2.errors.UniqueViolation:
         return False, "Este correo ya está registrado."
     except Exception as e:
         return False, f"Error al guardar usuario: {e}"
+
+def verificar_usuario(correo, password):
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()
+        cursor.execute('SELECT password FROM usuarios WHERE correo = %s', (correo,))
+        fila = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if fila and fila[0] == password:
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(f"Error al verificar usuario: {e}")
+        return False
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -44,10 +59,19 @@ def login():
     if request.method == 'POST':
         correo = request.form.get('correo')
         password = request.form.get('password')
+        accion = request.form.get('accion')  # para diferenciar registro/login
+
         if not correo or not password:
             mensaje = "Por favor, completa todos los campos."
         else:
-            exito, mensaje = guardar_usuario(correo, password)
+            if accion == "registrar":
+                exito, mensaje = registrar_usuario(correo, password)
+            elif accion == "login":
+                if verificar_usuario(correo, password):
+                    return f"<h2>¡Bienvenido {correo}!</h2><p>Has iniciado sesión correctamente.</p>"
+                else:
+                    mensaje = "Correo o contraseña incorrectos."
+
     return render_template('login.html', mensaje=mensaje)
 
 @app.route('/usuarios')
