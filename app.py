@@ -10,10 +10,11 @@ def crear_tabla_si_no_existe():
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cursor = conn.cursor()
+        # Quité UNIQUE para permitir correos repetidos
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS usuarios (
                 id SERIAL PRIMARY KEY,
-                correo TEXT UNIQUE NOT NULL,
+                correo TEXT NOT NULL,
                 password TEXT NOT NULL
             )
         ''')
@@ -23,7 +24,7 @@ def crear_tabla_si_no_existe():
     except Exception as e:
         print(f"Error creando tabla: {e}")
 
-def registrar_usuario(correo, password):
+def guardar_usuario(correo, password):
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cursor = conn.cursor()
@@ -31,46 +32,24 @@ def registrar_usuario(correo, password):
         conn.commit()
         cursor.close()
         conn.close()
-        return True, "Usuario registrado exitosamente."
-    except psycopg2.errors.UniqueViolation:
-        return False, "Este correo ya está registrado."
+        return True, "Usuario guardado correctamente."
     except Exception as e:
         return False, f"Error al guardar usuario: {e}"
 
-def verificar_usuario(correo, password):
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cursor = conn.cursor()
-        cursor.execute('SELECT password FROM usuarios WHERE correo = %s', (correo,))
-        fila = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        if fila and fila[0] == password:
-            return True
-        else:
-            return False
-    except Exception as e:
-        print(f"Error al verificar usuario: {e}")
-        return False
-
 @app.route('/', methods=['GET', 'POST'])
-def login():
+def login_o_guardar():
     mensaje = None
     if request.method == 'POST':
         correo = request.form.get('correo')
         password = request.form.get('password')
-        accion = request.form.get('accion')  # para diferenciar registro/login
 
         if not correo or not password:
             mensaje = "Por favor, completa todos los campos."
         else:
-            if accion == "registrar":
-                exito, mensaje = registrar_usuario(correo, password)
-            elif accion == "login":
-                if verificar_usuario(correo, password):
-                    return f"<h2>¡Bienvenido {correo}!</h2><p>Has iniciado sesión correctamente.</p>"
-                else:
-                    mensaje = "Correo o contraseña incorrectos."
+            exito, mensaje = guardar_usuario(correo, password)
+            if exito:
+                return render_template('exito.html', correo=correo)
+            # si falla mostrar mensaje abajo
 
     return render_template('login.html', mensaje=mensaje)
 
